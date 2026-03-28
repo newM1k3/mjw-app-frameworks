@@ -76,25 +76,31 @@ Add this block after the Tier 1 prompt to upgrade:
 TIER 2 UPGRADES — add to the existing app:
 
 AUTH:
-- Wrap the entire app in a login gate
-- Use Supabase magic link auth (email only, no password)
+- Install pocketbase: npm install pocketbase
+- Wrap the entire app in a PocketBase login gate
+- Use email + password auth: pb.collection('users').authWithPassword(email, password)
+- PocketBase URL from env: import.meta.env.VITE_POCKETBASE_URL
 - Show a centered login card on #0f1117 background before auth
-- After login, show the user's email in the top nav avatar tooltip
-- Add a "Sign out" option in the nav
+- After login, show the user's name in the top nav avatar tooltip
+- Add a "Sign out" option in the nav (calls pb.authStore.clear())
+- Persist session automatically via pb.authStore (PocketBase handles this)
 
 DATABASE:
-- Replace all useState data with Supabase queries
-- Table name: [RECORD_TYPE lowercase, e.g. "bookings"]
-- Include created_at, updated_at timestamps
-- Row-level security: users only see records they created (or all, for admin — use a role column)
+- Replace all useState data with PocketBase collection queries
+- Collection name: [RECORD_TYPE lowercase, e.g. "bookings"]
+- Use pb.collection('[RECORD_TYPE]').getFullList() to load records
+- Use pb.collection('[RECORD_TYPE]').create(data) for new records
+- Use pb.collection('[RECORD_TYPE]').update(id, data) for edits
+- Use pb.collection('[RECORD_TYPE]').delete(id) for deletion
+- Include created and updated timestamps (PocketBase adds these automatically)
+- Filter by owner: pb.collection('[RECORD_TYPE]').getFullList({ filter: 'owner = "' + pb.authStore.model.id + '"' })
 
 EXPORT:
 - Add "Export CSV" button to the filter bar
 - Exports the currently filtered records
 
 ENV VARS NEEDED:
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
+VITE_POCKETBASE_URL=https://api.yourdomain.com
 ```
 
 ---
@@ -107,7 +113,8 @@ Add this block after Tier 2:
 TIER 3 UPGRADES:
 
 ROLES:
-- Add a `role` field to the users table: admin | member | viewer
+- Add a `role` field to the PocketBase users collection: admin | member | viewer
+- Read role from pb.authStore.model.role after login
 - Admins see all records and have a User Management tab
 - Members can create and edit their own records
 - Viewers can only read
@@ -115,6 +122,7 @@ ROLES:
 ADMIN PANEL:
 - Add an "Admin" tab in the nav (visible to admins only)
 - Shows: total users, total records, records by status (bar chart), recent activity feed
+- Query user count: pb.collection('users').getList(1, 1) and use totalItems
 
 WEBHOOKS:
 - On record status change, POST to VITE_WEBHOOK_URL (if set) with { record, oldStatus, newStatus, changedBy, timestamp }
@@ -122,7 +130,9 @@ WEBHOOKS:
 
 NOTIFICATIONS:
 - Email user when a record assigned to them changes status
-- Use Supabase Edge Functions + Resend for email delivery
+- Use a Netlify Function + Resend for email delivery
+- Netlify Function receives { to, subject, body } and calls Resend API
+- Secret: RESEND_API_KEY stored in Netlify environment (never in frontend)
 ```
 
 ---

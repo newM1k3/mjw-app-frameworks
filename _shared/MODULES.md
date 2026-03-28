@@ -1,7 +1,8 @@
-# Shared modules
+# MJW Shared Modules
 
-Drop any of these into any framework at any tier.
+Drop-in modules that work across all five frameworks.
 Each module is self-contained — copy the file, import the component, done.
+All modules are Tier 1 ready (no backend) and Tier 2 upgradeable (PocketBase on Hostinger).
 
 ---
 
@@ -11,10 +12,10 @@ Each module is self-contained — copy the file, import the component, done.
 |------|-------------|-------------|
 | `dark-theme.css` | MJW signature palette + base styles | 1+ |
 | `card-grid.jsx` | Searchable, filterable card grid | 1+ |
-| `auth-gate.jsx` | Supabase auth wrapper (login wall) | 2+ |
-| `payment-hook.js` | Stripe Checkout session stub | 2+ |
-| `db-stub.js` | localStorage now, Supabase later | 1→2 migration |
-| `email-capture.jsx` | Email + name capture with CTA | 1+ |
+| `auth-gate.jsx` | PocketBase auth wrapper (login wall) | 2+ |
+| `payment-hook.js` | Stripe Checkout + Billing Portal stub | 2+ |
+| `db-stub.js` | localStorage now, PocketBase later | 1→2 migration |
+| `email-capture.jsx` | Email + name capture → PocketBase leads | 1+ |
 
 ---
 
@@ -149,115 +150,141 @@ export default function CardGrid({ items, renderCard, searchKeys = ['title'] }) 
 
 ## auth-gate.jsx
 
-Wraps any page in a Supabase login wall. Tier 2+.
+Wraps any page in a PocketBase login wall. Tier 2+.
 
 ```jsx
 // auth-gate.jsx
-// Requires: npm install @supabase/supabase-js
-// Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env
+// Requires: npm install pocketbase
+// Set VITE_POCKETBASE_URL in .env
 
-import { createClient } from '@supabase/supabase-js';
+import PocketBase from 'pocketbase';
 import { useState, useEffect } from 'react';
 
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL || 'http://127.0.0.1:8090');
 
 export default function AuthGate({ children }) {
-  const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [isValid, setIsValid] = useState(pb.authStore.isValid);
   const [email, setEmail] = useState('');
-  const [sent, setSent] = useState(false);
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
-    const { data: listener } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
-    return () => listener.subscription.unsubscribe();
+    const unsub = pb.authStore.onChange(() => setIsValid(pb.authStore.isValid));
+    return () => unsub();
   }, []);
 
   const handleLogin = async () => {
-    await supabase.auth.signInWithOtp({ email });
-    setSent(true);
+    setLoading(true);
+    setError('');
+    try {
+      await pb.collection('users').authWithPassword(email, password);
+    } catch {
+      setError('Invalid email or password.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (loading) return <div className="auth-loading">Loading…</div>;
-  if (session) return children;
+  if (isValid) return children;
 
   return (
     <div className="auth-screen">
       <div className="auth-card">
         <h2>Sign in</h2>
-        {sent ? (
-          <p>Check your email for a magic link.</p>
-        ) : (
-          <>
-            <input
-              type="email"
-              placeholder="your@email.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-            />
-            <button onClick={handleLogin}>Send magic link</button>
-          </>
-        )}
+        <input type="email" placeholder="you@example.com"
+          value={email} onChange={e => setEmail(e.target.value)} />
+        <input type="password" placeholder="••••••••"
+          value={password} onChange={e => setPassword(e.target.value)} />
+        {error && <p className="auth-error">{error}</p>}
+        <button onClick={handleLogin} disabled={!email || !password || loading}>
+          {loading ? 'Signing in…' : 'Sign in'}
+        </button>
       </div>
     </div>
   );
 }
 
-/* Swap to password auth or OAuth by changing signInWithOtp to
-   signInWithPassword or signInWithOAuth({ provider: 'google' }) */
+export function getCurrentUser() { return pb.authStore.model; }
+export function signOut() { pb.authStore.clear(); }
+export { pb };
+
+/* Swap to OAuth (e.g. Google):
+   await pb.collection('users').authWithOAuth2({ provider: 'google' }); */
+```
+
+**ENV VAR required:**
+```
+VITE_POCKETBASE_URL = https://api.yourdomain.com
 ```
 
 ---
 
 ## payment-hook.js
 
-Stripe Checkout stub. Replace the API URL with your actual backend endpoint at Tier 2.
+Stripe Checkout stub. Tier 1 logs to console. Tier 2 calls a Netlify Function that writes to PocketBase.
 
 ```js
 // payment-hook.js
 // Tier 1: logs to console (prototype mode)
-// Tier 2: replace CHECKOUT_URL with your Stripe backend
+// Tier 2: calls Netlify Function → Stripe → PocketBase user_access
 
-const CHECKOUT_URL = import.meta.env.VITE_STRIPE_CHECKOUT_URL || null;
+const CHECKOUT_URL = import.meta.env.VITE_CHECKOUT_URL || null;
+const PORTAL_URL   = import.meta.env.VITE_PORTAL_URL   || null;
 
-export async function startCheckout({ priceId, email, metadata = {} }) {
+export async function startCheckout({ priceId, userId, appSlug, mode = 'subscription' }) {
   if (!CHECKOUT_URL) {
-    // Prototype mode — no backend yet
-    console.log('[payment-hook] Prototype mode. Would charge:', { priceId, email, metadata });
+    console.log('[payment-hook] Prototype mode:', { priceId, userId, appSlug });
     alert('Payment coming soon! (prototype mode)');
     return;
   }
-
   const res = await fetch(CHECKOUT_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ priceId, email, metadata }),
+    body: JSON.stringify({ priceId, userId, appSlug, mode }),
   });
   const { url } = await res.json();
   window.location.href = url;
 }
 
-// Usage:
-// import { startCheckout } from '../_shared/payment-hook';
-// startCheckout({ priceId: 'price_xxx', email: user.email });
+export async function openBillingPortal(stripeCustomerId) {
+  if (!PORTAL_URL) {
+    console.log('[payment-hook] Prototype mode. Portal for:', stripeCustomerId);
+    alert('Billing portal coming soon! (prototype mode)');
+    return;
+  }
+  const res = await fetch(PORTAL_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stripeCustomerId }),
+  });
+  const { url } = await res.json();
+  window.location.href = url;
+}
 ```
+
+**ENV VARS required (Tier 2):**
+```
+VITE_CHECKOUT_URL = /.netlify/functions/create-checkout-session
+VITE_PORTAL_URL   = /.netlify/functions/create-portal-session
+```
+
+**PocketBase collections required:**
+- `apps` — `name`, `slug`, `url`, `is_active`
+- `user_access` — `user` (→users), `app` (→apps), `tier`, `status`, `trial_ends_at`, `stripe_subscription_id`
+
+See Platform Playbook Part 9 for complete Netlify Function reference code.
 
 ---
 
 ## db-stub.js
 
-localStorage now, Supabase later. The API is identical — swap the implementation when ready.
+localStorage now, PocketBase later. The API is identical — swap the implementation when ready.
 
 ```js
 // db-stub.js
 // Tier 1: reads/writes localStorage
-// Tier 2: swap body of each function to Supabase calls — callers don't change
+// Tier 2: swap body of each function to PocketBase calls — callers don't change
 
 const PREFIX = 'mjw_db_';
 
@@ -266,88 +293,81 @@ export const db = {
     const raw = localStorage.getItem(`${PREFIX}${table}_${id}`);
     return raw ? JSON.parse(raw) : null;
   },
-
-  async list(table) {
+  async list(table, filter = '') {
     const keys = Object.keys(localStorage).filter(k => k.startsWith(`${PREFIX}${table}_`));
     return keys.map(k => JSON.parse(localStorage.getItem(k)));
   },
-
   async set(table, id, data) {
-    const record = { id, ...data, updatedAt: new Date().toISOString() };
+    const record = { id, ...data, updated: new Date().toISOString() };
     localStorage.setItem(`${PREFIX}${table}_${id}`, JSON.stringify(record));
     return record;
   },
-
   async delete(table, id) {
     localStorage.removeItem(`${PREFIX}${table}_${id}`);
   },
 };
 
-// Tier 2 migration: replace body with Supabase:
-// async get(table, id) {
-//   const { data } = await supabase.from(table).select('*').eq('id', id).single();
-//   return data;
-// }
+// Tier 2 migration — replace body with PocketBase:
+// import PocketBase from 'pocketbase';
+// const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL);
+// export const db = {
+//   async get(table, id)          { return await pb.collection(table).getOne(id); },
+//   async list(table, filter='')  { return await pb.collection(table).getFullList({ filter }); },
+//   async set(table, id, data)    { return id
+//     ? await pb.collection(table).update(id, data)
+//     : await pb.collection(table).create(data); },
+//   async delete(table, id)       { await pb.collection(table).delete(id); },
+// };
 ```
 
 ---
 
 ## email-capture.jsx
 
-Lead capture form. Tier 1 logs to console. Wire to ConvertKit / Mailchimp / your CRM at Tier 2.
+Lead capture form. Tier 1 logs to console. Tier 2 saves to PocketBase `leads` collection.
 
 ```jsx
 // email-capture.jsx
-import { useState } from 'react';
+// Requires: npm install pocketbase
+// PocketBase 'leads' collection: email (Email), name (Text), tag (Text), source (Text)
 
-const SUBMIT_URL = import.meta.env.VITE_EMAIL_SUBMIT_URL || null;
+import { useState } from 'react';
+import PocketBase from 'pocketbase';
+
+const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL || 'http://127.0.0.1:8090');
+const PROTOTYPE_MODE = !import.meta.env.VITE_POCKETBASE_URL;
 
 export default function EmailCapture({ heading, cta = 'Get access', tag = '' }) {
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
-  const [status, setStatus] = useState('idle'); // idle | loading | done | error
+  const [status, setStatus] = useState('idle');
 
   const handleSubmit = async () => {
     setStatus('loading');
-    if (!SUBMIT_URL) {
+    if (PROTOTYPE_MODE) {
       console.log('[email-capture] Prototype mode:', { email, name, tag });
       setTimeout(() => setStatus('done'), 800);
       return;
     }
     try {
-      await fetch(SUBMIT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, name, tag }),
-      });
+      await pb.collection('leads').create({ email, name, tag, source: window.location.pathname });
       setStatus('done');
     } catch {
       setStatus('error');
     }
   };
 
-  if (status === 'done') return <p className="capture-success">You're in. Check your email.</p>;
+  if (status === 'done') return <p className="capture-success">You're in. We'll be in touch.</p>;
 
   return (
     <div className="email-capture">
       {heading && <h3>{heading}</h3>}
       <div className="capture-fields">
-        <input
-          type="text"
-          placeholder="Your name"
-          value={name}
-          onChange={e => setName(e.target.value)}
-        />
-        <input
-          type="email"
-          placeholder="Your email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-        />
-        <button
-          onClick={handleSubmit}
-          disabled={!email || status === 'loading'}
-        >
+        <input type="text" placeholder="Your name"
+          value={name} onChange={e => setName(e.target.value)} />
+        <input type="email" placeholder="Your email"
+          value={email} onChange={e => setEmail(e.target.value)} />
+        <button onClick={handleSubmit} disabled={!email || status === 'loading'}>
           {status === 'loading' ? 'Sending…' : cta}
         </button>
       </div>
@@ -356,3 +376,31 @@ export default function EmailCapture({ heading, cta = 'Get access', tag = '' }) 
   );
 }
 ```
+
+---
+
+## PocketBase quick reference
+
+**Core platform collections:**
+
+| Collection | Purpose |
+|------------|---------|
+| `users` | Auth — built-in PocketBase users collection |
+| `apps` | One record per app on the platform |
+| `user_access` | Tier/status per user per app |
+| `leads` | Email capture leads |
+
+**Accessing PocketBase in any component:**
+```js
+import PocketBase from 'pocketbase';
+const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL);
+```
+
+**ENV VAR required in every Tier 2+ app:**
+```
+VITE_POCKETBASE_URL = https://api.yourdomain.com
+```
+
+---
+
+*MJW Design — Last updated: March 2026*

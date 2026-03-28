@@ -41,7 +41,7 @@ Key signals:
 
 ### Tier 2 — Product
 Everything in Tier 1, plus:
-- Shared leaderboard (Supabase — times, scores, team names)
+- Shared leaderboard (PocketBase — times, scores, team names)
 - Save progress (resume where you left off)
 - GM (Game Master) dashboard — see all active sessions, time each group
 - Access code system (groups get a unique code to start)
@@ -224,30 +224,35 @@ TIER 2 UPGRADES:
 
 ACCESS CODES:
 - Title screen shows an "Enter your group code" field
-- Codes stored in Supabase (table: access_codes) with status: active / used / expired
-- Valid code unlocks the experience and creates a session record
+- Install pocketbase: npm install pocketbase
+- Codes stored in PocketBase collection: access_codes
+  Fields: code (Text), status (Text: active/used/expired), session_id (Text)
+- Valid code unlocks the experience and creates a session record in PocketBase
+- PocketBase URL from env: import.meta.env.VITE_POCKETBASE_URL
 
 LEADERBOARD:
 - After ending screen: "Add your name to the leaderboard" form
-- Stores: team_name, time_seconds, clues_found, ending_id, created_at
+- Stores to PocketBase collection: leaderboard
+  Fields: team_name, time_seconds, clues_found, ending_id, created (auto)
 - Public leaderboard page (sortable by time, accessible via /leaderboard)
 - Top 10 displayed with rank badges
+- Load with: pb.collection('leaderboard').getList(1, 10, { sort: 'time_seconds' })
 
 GM DASHBOARD (route: /gm — password protected):
-- Live view of all active sessions
+- Live view of all active sessions from PocketBase sessions collection
 - Each session: team name, current scene, time elapsed, clues found
-- "Reset session" button per group
+- "Reset session" button per group (updates PocketBase record)
 - Full leaderboard management (delete entries, add manual entries)
 
 PAYMENT GATE:
 - Before showing access code field: Stripe Checkout for the experience ($X)
-- After payment: email access code to purchaser
-- Promo code field (stored in Supabase, applies discount)
+- After payment: Netlify webhook Function emails access code to purchaser
+  and creates access_codes record in PocketBase
+- Promo code field (stored in PocketBase promo_codes collection, applies discount)
 
 ENV VARS NEEDED:
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
-VITE_STRIPE_CHECKOUT_URL=
+VITE_POCKETBASE_URL=https://api.yourdomain.com
+VITE_CHECKOUT_URL=/.netlify/functions/create-checkout-session
 VITE_GM_PASSWORD=
 ```
 

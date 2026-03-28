@@ -61,7 +61,7 @@ Every element exists to move the user to the next step. Nothing decorative.
 Everything in Tier 1, plus:
 - Email actually submits to ConvertKit / Mailchimp / Loops
 - Tags subscriber based on their result segment
-- Result + email stored in Supabase for follow-up
+- Result + email stored in PocketBase for follow-up
 - Tripwire product gated behind email capture (Payhip / Gumroad link revealed after submit)
 - A/B variant support (two versions of the headline or CTA)
 
@@ -254,26 +254,28 @@ EMAIL DELIVERY:
 - Show real success/error states
 
 RESULT STORAGE:
-- Also POST result to Supabase (table: calculator_results)
-- Fields: email, result_value, segment, answers (JSON), created_at
-- No auth required — anonymous submissions
+- Install pocketbase: npm install pocketbase
+- Save result to PocketBase collection: calculator_results
+  Fields: email (Email), result_value (Number), segment (Text), answers (JSON), created (auto)
+- No auth required — anonymous submissions via public API rule
+- PocketBase URL from env: import.meta.env.VITE_POCKETBASE_URL
+- Save with: pb.collection('calculator_results').create({ email, result_value, segment, answers })
 
 TRIPWIRE REVEAL:
 - After email submit: reveal the product offer with the actual purchase link
 - If segment = 'high': show urgency messaging + higher-tier offer
-- Track which segment converts at what rate (store in Supabase)
+- Track which segment converts at what rate (stored in PocketBase calculator_results)
 
 A/B TESTING:
 - On page load, randomly assign variant A or B (50/50)
 - Variant A: current HOOK_HEADLINE
 - Variant B: [alternative headline]
-- Store variant in submission record
-- View conversion by variant in Supabase
+- Store variant in submission record (add variant field to calculator_results)
+- View conversion by variant in PocketBase Admin
 
 ENV VARS NEEDED:
 VITE_EMAIL_SUBMIT_URL=
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
+VITE_POCKETBASE_URL=https://api.yourdomain.com
 ```
 
 ---

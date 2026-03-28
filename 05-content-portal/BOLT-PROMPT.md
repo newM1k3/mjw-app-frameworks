@@ -42,7 +42,7 @@ Key signals:
 
 ### Tier 2 — Product
 Everything in Tier 1, plus:
-- Login gate (magic link auth via Supabase)
+- Login gate (PocketBase email/password auth)
 - Gated content sections (some sections visible only after login)
 - Member-only resources section (downloadable files, links)
 - Progress tracking (mark sections as complete)
@@ -223,33 +223,40 @@ Should feel like premium product documentation, not a template.
 TIER 2 UPGRADES:
 
 AUTH GATE:
-- Wrap the entire app (or specific sections) in Supabase magic link auth
+- Install pocketbase: npm install pocketbase
+- Wrap the entire app (or specific sections) in PocketBase email/password auth
+- PocketBase URL from env: import.meta.env.VITE_POCKETBASE_URL
 - Public sections: Hero, Feature Grid, Setup Steps
 - Gated sections: [specify which sections] — show "Sign in to access" placeholder
 - After login: full content unlocks
+- Sign out: pb.authStore.clear()
 
 GATED RESOURCES SECTION:
 - Add a "Resources" section (id="resources") after auth check
 - Shows downloadable files, tool links, template downloads
 - Each resource: icon + title + description + download/open button
-- Resources stored in Supabase Storage or as hardcoded URLs
+- Resources stored in PocketBase Storage or as hardcoded URLs
+- Load files with: pb.files.getUrl(record, filename)
 
 PROGRESS TRACKING:
 - Sidebar or top progress bar showing sections completed
 - Checkbox or "Mark complete" button on each content section
-- Progress stored in Supabase (table: member_progress)
+- Progress stored in PocketBase collection: member_progress
+  Fields: user (Relation→users), section_id (Text), completed (Bool), created (auto)
 - Completion percentage shown in member profile
+- Save with: pb.collection('member_progress').create({ user: pb.authStore.model.id, section_id, completed: true })
 
 PAYMENT TIER:
 - Free tier: access to Tier 1 public content
 - Pro tier ($X/month via Stripe): unlocks all gated sections + resources
+- Check access: read user_access record from PocketBase for this user + app
 - Pro badge shown in member nav
 - Upgrade prompt when free members try to access pro content
+- startCheckout({ priceId: 'price_xxx', userId: pb.authStore.model.id, appSlug: '[APP_NAME_SLUG]' })
 
 ENV VARS NEEDED:
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
-VITE_STRIPE_CHECKOUT_URL=
+VITE_POCKETBASE_URL=https://api.yourdomain.com
+VITE_CHECKOUT_URL=/.netlify/functions/create-checkout-session
 ```
 
 ---

@@ -108,35 +108,42 @@ The app should feel like professional creative software, not a demo.
 TIER 2 UPGRADES:
 
 AUTH:
-- Supabase magic link auth
+- Install pocketbase: npm install pocketbase
+- PocketBase email + password auth gate
 - Login card on dark background before access
-- Show user email in header avatar
+- PocketBase URL from env: import.meta.env.VITE_POCKETBASE_URL
+- Show user name in header avatar after login
+- Sign out clears pb.authStore
 
 QUOTA SYSTEM:
 - Each user gets 20 free generations
-- Track count in Supabase (table: generation_log)
+- Track count in PocketBase collection: generation_log
+  Fields: user (Relation→users), prompt (Text), output_url (URL), created (auto)
+- Load count on login: pb.collection('generation_log').getList(1, 1, { filter: 'user = "' + pb.authStore.model.id + '"' })
 - Show remaining count in header: "14 generations remaining"
 - When quota reached: show upgrade modal
 
 PAYMENT:
-- Stripe Checkout for quota top-ups
+- Stripe Checkout for quota top-ups via Netlify Function
 - Product: "50 more generations" — $4.99
-- After payment: add 50 to user's quota in Supabase
+- After Stripe invoice.paid webhook: Netlify Function updates user record in PocketBase
+  (add quota_remaining field to users collection)
+- startCheckout({ priceId: 'price_xxx', userId: pb.authStore.model.id, appSlug: '[APP_NAME_SLUG]' })
 
 CLOUD HISTORY:
-- Save each generation to Supabase Storage (images) + generations table (metadata)
-- History panel now loads from Supabase — persists across devices
-- Each entry has a permanent shareable URL
+- Save each generation to PocketBase Storage (images) + generation_log collection (metadata)
+- History panel now loads from PocketBase — persists across devices
+- Each entry has a permanent URL via pb.files.getUrl(record, filename)
 
 API KEY:
 - Move to backend — users no longer need their own key
-- Use Supabase Edge Function as proxy to AI provider
-- Your API key in Edge Function env vars only
+- Use a Netlify Function as proxy to AI provider
+- Your API key in Netlify env vars only (never in frontend)
+- Frontend calls /.netlify/functions/ai-generate with the prompt
 
 ENV VARS NEEDED:
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
-VITE_STRIPE_CHECKOUT_URL=
+VITE_POCKETBASE_URL=https://api.yourdomain.com
+VITE_CHECKOUT_URL=/.netlify/functions/create-checkout-session
 ```
 
 ---

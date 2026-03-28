@@ -14,6 +14,33 @@ It contains 5 framework types, each with 3 tiers of complexity, and a set of sha
 
 ---
 
+## Canonical tech stack (use this for every app)
+
+| Layer | Technology | Notes |
+|-------|-----------|-------|
+| Frontend | React + Vite + TypeScript | All frameworks use this |
+| Styling | TailwindCSS or inline styles | MJW palette (see design system below) |
+| Backend / Auth / DB | **PocketBase on Hostinger** | Single shared instance for all apps |
+| PocketBase SDK | `pocketbase` npm package | `npm install pocketbase` |
+| PocketBase URL env var | `VITE_POCKETBASE_URL` | Set in Netlify env vars per app |
+| Deployment | Netlify | Connect GitHub repo → auto-deploy |
+| Payments | Stripe Checkout | Via Netlify Functions (see Playbook Part 9) |
+| Email | Resend | Via Netlify Functions |
+| AI | OpenAI / Gemini | Via Netlify Functions (key never in frontend) |
+
+**Never use Supabase.** PocketBase on Hostinger is the single source of truth for auth, data, and file storage across all MJW apps.
+
+**Core PocketBase collections (shared across all apps):**
+
+| Collection | Purpose |
+|------------|---------|
+| `users` | Built-in auth — all apps share one user pool |
+| `apps` | One record per app (`name`, `slug`, `url`, `is_active`) |
+| `user_access` | Tier/status per user per app (`user`, `app`, `tier`, `status`, `stripe_subscription_id`) |
+| `leads` | Email capture from any lead gen form |
+
+---
+
 ## Mike's job
 
 When choosing a framework or writing copy, understand the context:
@@ -144,4 +171,4 @@ Things to add to the master framework on next update:
 
 ---
 
-*Maintained by MJW Design. Last updated: March 2026.*
+*Maintained by MJW Design. Last updated: March 2026. Backend migrated from Supabase → PocketBase on Hostinger.*
