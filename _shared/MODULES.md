@@ -16,6 +16,8 @@ All modules are Tier 1 ready (no backend) and Tier 2 upgradeable (PocketBase on 
 | `payment-hook.js` | Stripe Checkout + Billing Portal stub | 2+ |
 | `db-stub.js` | localStorage now, PocketBase later | 1→2 migration |
 | `email-capture.jsx` | Email + name capture → PocketBase leads | 1+ |
+| `lib/faceDetection.ts` | Client-side face detection via face-api.js (TensorFlow.js) | 1+ |
+| `lib/imageCompression.ts` | Client-side image compression via Canvas API | 1+ |
 
 ---
 
@@ -400,6 +402,57 @@ const pb = new PocketBase(import.meta.env.VITE_POCKETBASE_URL);
 ```
 VITE_POCKETBASE_URL = https://api.yourdomain.com
 ```
+
+---
+
+---
+
+## lib/faceDetection.ts
+
+Client-side face detection using `face-api.js` (TensorFlow.js). Detects all faces in an `<img>` element and returns bounding boxes, 68-point landmarks, and confidence scores. No server required. Includes a `drawFaceDetections()` canvas helper for rendering overlays.
+
+**Dependency:** `pnpm add @vladmandic/face-api`
+
+```ts
+import { detectFaces, drawFaceDetections } from '../_shared/lib/faceDetection';
+
+const imgEl = document.getElementById('photo') as HTMLImageElement;
+const faces = await detectFaces(imgEl);
+// faces[0].boundingBox, faces[0].confidence, faces[0].landmarks
+
+// Optional: draw bounding boxes on a canvas overlay
+drawFaceDetections(canvasEl, imgEl, faces);
+```
+
+**Notes:**
+- Models load lazily on first call and are cached — no repeated CDN fetches.
+- Detection threshold auto-adjusts for dark images (brightness < 0.3 → threshold 0.3).
+- `drawFaceDetections()` accepts an optional `DrawOptions` param to customise box colour and fonts.
+
+---
+
+## lib/imageCompression.ts
+
+Client-side image compression using the Canvas API. Resizes images to fit within a `maxWidth × maxHeight` envelope while preserving aspect ratio, then re-encodes at a configurable quality level. Returns both a `dataUrl` (for display) and a `Blob` (for upload).
+
+**Dependency:** none (pure browser Canvas API — no install required)
+
+```ts
+import { compressImage, formatFileSize } from '../_shared/lib/imageCompression';
+
+const result = await compressImage(file, {
+  maxWidth: 1920,
+  maxHeight: 1920,
+  quality: 0.85,
+});
+console.log(`${formatFileSize(result.originalSize)} → ${formatFileSize(result.compressedSize)}`);
+// Upload result.blob via FormData, or pass result.dataUrl as a base64 string
+```
+
+**Notes:**
+- Default settings (1920×1920, 85% JPEG) are tuned for AI image generation reference uploads.
+- For thumbnails or avatars, use `{ maxWidth: 400, maxHeight: 400, quality: 0.80 }`.
+- `compressionRatio` in the result is the percentage reduction in file size (0–100).
 
 ---
 
