@@ -18,6 +18,11 @@ All modules are Tier 1 ready (no backend) and Tier 2 upgradeable (PocketBase on 
 | `email-capture.jsx` | Email + name capture → PocketBase leads | 1+ |
 | `lib/faceDetection.ts` | Client-side face detection via face-api.js (TensorFlow.js) | 1+ |
 | `lib/imageCompression.ts` | Client-side image compression via Canvas API | 1+ |
+| `lib/db.ts` | IndexedDB client-side database | 1+ |
+| `components/Aurora.tsx` | WebGL-powered animated aurora background | 1+ |
+| `hooks/useScrollReveal.ts` | Scroll reveal animation hook | 1+ |
+| `styles/glass-theme.css` | Glassmorphism design system (from Insighta) | 1+ |
+| `styles/retro-theme.css` | 1970s retro design system (from Retro Quest) | 1+ |
 
 ---
 
@@ -455,5 +460,74 @@ console.log(`${formatFileSize(result.originalSize)} → ${formatFileSize(result.
 - `compressionRatio` in the result is the percentage reduction in file size (0–100).
 
 ---
+
+
+---
+
+## lib/db.ts
+
+Client-side IndexedDB wrapper for persistent storage across sessions. Used in standalone apps like Time Travel Station.
+
+```ts
+import { db } from '../_shared/lib/db';
+
+await db.saveItem({ id: '123', data: 'test' });
+const item = await db.getItem('123');
+```
+
+---
+
+## components/Aurora.tsx
+
+WebGL-powered animated aurora background using `ogl`. A full 3D mesh with custom GLSL shaders.
+
+```tsx
+import { Aurora } from '../_shared/components/Aurora';
+import '../_shared/components/Aurora.css';
+
+export default function Hero() {
+  return (
+    <div className="relative w-full h-screen">
+      <Aurora colorStops={["#00d8ff", "#7cff67", "#00d8ff"]} amplitude={1.0} />
+      <div className="absolute inset-0 z-10">Content here</div>
+    </div>
+  );
+}
+```
+
+---
+
+## hooks/useScrollReveal.ts
+
+Intersection Observer hook for scroll-reveal animations.
+
+```ts
+import { useScrollReveal } from '../_shared/hooks/useScrollReveal';
+
+export default function Section() {
+  useScrollReveal();
+  return <div className="reveal">This fades in on scroll</div>;
+}
+```
+
+---
+
+## styles/glass-theme.css
+
+Glassmorphism design system extracted from Insighta. Provides `.glass-panel`, `.glass-card`, and staggered `.animate-glass-in` utilities.
+
+```css
+@import '../_shared/styles/glass-theme.css';
+```
+
+---
+
+## styles/retro-theme.css
+
+1970s retro design system extracted from Retro Quest. Provides `.retro-btn`, `.retro-card`, `.badge-new`, and vintage background patterns. Requires specific Tailwind colors and Google Fonts.
+
+```css
+@import '../_shared/styles/retro-theme.css';
+```
 
 *MJW Design — Last updated: March 2026*

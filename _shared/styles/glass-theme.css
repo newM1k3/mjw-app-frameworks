@@ -1,0 +1,76 @@
+/**
+ * MJW Platform — Glassmorphism Design System
+ * Source: Insighta Financial Dashboard (mjw-insighta-ui)
+ * Usage: Import this file in any app that uses the glass aesthetic.
+ *
+ * Requires a full-bleed background image or dark gradient behind the panels.
+ * Recommended: backdrop-filter: blur(40px) on .glass-panel
+ */
+
+/* ─── Entry Animation ─────────────────────────────────────────────────────── */
+
+@keyframes glassIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-glass-in {
+  animation: glassIn 0.6s ease-out forwards;
+  opacity: 0;
+}
+
+/* Staggered delay utilities */
+.delay-100 { animation-delay: 0.1s; }
+.delay-150 { animation-delay: 0.15s; }
+.delay-200 { animation-delay: 0.2s; }
+.delay-250 { animation-delay: 0.25s; }
+.delay-300 { animation-delay: 0.3s; }
+
+/* ─── Glass Panel (large containers, sidebars, modals) ────────────────────── */
+
+.glass-panel {
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(40px) saturate(1.4);
+  -webkit-backdrop-filter: blur(40px) saturate(1.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* ─── Glass Card (inner cards, stat tiles, list items) ───────────────────── */
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 16px;
+  transition: background 0.3s ease;
+}
+
+.glass-card:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* ─── Recharts overrides for glass backgrounds ───────────────────────────── */
+
+.recharts-cartesian-grid-horizontal line,
+.recharts-cartesian-grid-vertical line {
+  stroke: rgba(255, 255, 255, 0.05) !important;
+}
+
+.recharts-text {
+  fill: rgba(255, 255, 255, 0.4) !important;
+  font-size: 11px !important;
+}
+
+.recharts-cartesian-axis-line,
+.recharts-cartesian-axis-tick-line {
+  stroke: transparent !important;
+}
